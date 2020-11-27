@@ -142,13 +142,25 @@ class ValueModel(nn.Module):
         return x
 
 
+kwargs = {
+    'buffer_size': int(1e6),
+    'batch_size': 256,
+    'policy_freq': 2,
+    'tau': 0.005,
+    'discount': 0.99,
+    'policy_lr': 3e-4,
+    'value_lr': 3e-4,
+    'learn_iteration': 1,
+    'verbose': False,
+    'act_dim': action_dim,
+}
+
 model = namedtuple('model', ['policy_net', 'value_net', 'v_net'])
 actor = ActorModel(state_space, hidden_dim, action_space)
 critic = CriticModel(state_space, hidden_dim, action_space)
 v_net = ValueModel(state_space)
-model = model(actor, critic, v_net)
-policy = SAC(model, buffer_size=buffer_size, actor_learn_freq=actor_learn_freq, 
-        target_update_freq=target_update_freq, batch_size=batch_size)
+rl_agent = model(actor, critic, v_net)
+policy = SAC(rl_agent, **kwargs)
 writer = SummaryWriter(writer_path)
 
 TRAIN = True
