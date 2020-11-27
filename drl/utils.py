@@ -25,7 +25,7 @@ def plot(steps, y_label, model_save_dir, step_interval):
 
 class Buffer(object):
     def __init__(self, size, **kwargs):
-        self.memory = deque(maxlen=size)
+        self.memory = deque(maxlen=int(size))
 
     def __len__(self):
         return len(self.memory)
@@ -76,13 +76,13 @@ class ReplayBuffer(Buffer):
         return self.memory
 
 class PriorityReplayBuffer(Buffer):
-    def __init__(self, size, gamma=0.99, alpha=0.5, beta=0.4, beta_increment=6e-4, n_step=3):
+    def __init__(self, size, gamma=0.99, alpha=0.5, beta=0.4, beta_increment=2e-7, n_step=1):
         super().__init__(size)
         self.gamma = gamma
         self.alpha = alpha
         self.beta = beta
-        self.beta_increment = beta_increment
-        self.n_step = n_step
+        self.beta_increment = beta_increment # hardcode for 0.4 + 2e-7 * 3e6 = 1.0, only used for PER
+        self.n_step = n_step # default: n_step = 1
       
         self.priorities = deque(maxlen=size)
         self.n_step_buffer = deque(maxlen=self.n_step)
@@ -107,7 +107,11 @@ class PriorityReplayBuffer(Buffer):
         probs = np.array(self.priorities) ** self.alpha
         probs = probs / np.sum(probs)
 
+        #FIXME: to be fixed use sumtree
+        #================
         indices = np.random.choice(memory_size, batch_size, replace=False, p=probs)
+        #================
+        
         samples = [self.memory[idx] for idx in indices]
 
         weights = (memory_size * probs[indices]) ** (- self.beta)
