@@ -4,12 +4,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
+# np_path = '/home/lintao/drl_repo/Light_RL/beta/results/LAP_TD3_HalfCheetah-v3_0.npy'
 dir_path = '/home/lintao/drl_repo/Light_RL/beta/results'
-path1 = np.load(dir_path+'/MSAC_HalfCheetah-v2_0_False_False_False.npy') # SAC
-path2 = np.load(dir_path+'/MSAC_HalfCheetah-v2_10_False_False_False.npy') # SAC
-path3 = np.load(dir_path+'/MSAC_HalfCheetah-v2_20_False_False_False.npy') # SAC
+f1 = '/MSAC_HalfCheetah-v2_0_False_False_False.npy'
+f2 = '/MSAC_HalfCheetah-v2_0_True_False_False.npy'
 
-data_list = [path1, path2, path3]
+data1 = np.load(dir_path + f1)[:300]
+data2 = np.load(dir_path + f2)[:300]
 
 def smooth(data, sm=1):
     if sm > 1:
@@ -22,21 +23,25 @@ def smooth(data, sm=1):
         smooth_data = data
     return smooth_data
 
-# linestyle = ['-', '--', ':', '-.']
-# color = ['r', 'g', 'b', 'k']
-# label = ['TD3', 'SAC', 'algo3', 'algo4']
+data = [data1, data2]
 
+linestyle = ['-', '--', ':', '-.']
+color = ['r', 'g', 'b', 'k']
+label = ['TD3', 'SAC', 'algo3', 'algo4']
+
+fig = plt.figure()
 linestyle = ['-', '--', ':', '-.', 'solid']
 color = ['r', 'g', 'b', 'k', 'gray']
 label = ['SAC', 'SAC_PER', 'SAC_M', 'SAC_PAL', 'SAC_MPAL']
 
-data_list = smooth(data_list, sm=10)
-time = range(data_list[0].shape[-1])
+sns.set(style="darkgrid", font_scale=1)
+
+# data = smooth(data, sm=10)
+time = range(data[0].shape[-1])
 time = np.array(time)/200
 
-fig = plt.figure()
-sns.set(style="darkgrid", font_scale=1)
-sns.tsplot(time=time, data=data_list, color=color[0], linestyle=linestyle[0], condition=label[0])
+sns.tsplot(time=time, data=data[0], color='r', linestyle='-', condition='SAC')
+sns.tsplot(time=time, data=data[1], color='b', linestyle='-', condition='SAC_PER')
 
 plt.ylabel("Evaluation Reward")
 plt.xlabel("Time steps(1e6)")

@@ -20,7 +20,8 @@ from collections import namedtuple
 import sys
 sys.path.append('..')
 
-from drl.algorithm import MSAC
+# from drl.algorithm import MSAC
+from drl.algorithm import SAC
 
 mujuco_env = ['Ant-v2', 'HalfCheetah-v2', 'Hopper-v2', 'Humanoid-v2']
 env_name = mujuco_env[1]
@@ -124,11 +125,10 @@ class CriticModelDist(nn.Module):
 
 
 def map_action(env, action):
-    if isinstance(action, torch.Tensor):
-        action = action.item()
-    action_scale = (env.action_space.high - env.action_space.low) / 2
-    action_bias = (env.action_space.high + env.action_space.low) / 2
-    return action * action_scale + action_bias
+    act = action.item() if isinstance(action, torch.Tensor) else action
+    act_scale = (env.action_space.high - env.action_space.low) / 2
+    act_bias = (env.action_space.high + env.action_space.low) / 2
+    return act * act_scale + act_bias
 
 def eval_policy(policy, env, seed, eval_episodes=10):
     eval_env = gym.make(env)
@@ -172,13 +172,15 @@ def main(seed):
         'learn_iteration': 1,
         'verbose': False,
         'act_dim': action_dim,
-        'use_priority': False,
-        'use_munchausen': False,
-        'use_PAL': False,
-        'n_step': 1,
+        # 'alpha': 1.0,
+        # 'use_priority': False,
+        # 'use_munchausen': False,
+        # 'use_PAL': False,
+        # 'n_step': 1,
     }
     
-    file_name = f"MSAC_{env_name}_{seed}_{kwargs['use_priority']}_{kwargs['use_munchausen']}_{kwargs['use_PAL']}"
+    # file_name = f"MSAC_{env_name}_{seed}_{kwargs['use_priority']}_{kwargs['use_munchausen']}_{kwargs['use_PAL']}"
+    file_name = f"SAC_{env_name}_{seed}"
     print("---------------------------------------")
     print(f"Settings: {file_name}")
     print("---------------------------------------")
@@ -187,7 +189,7 @@ def main(seed):
     actor = ActorModel(state_dim, hidden_dim, action_dim)
     critic = CriticModelDist(state_dim, hidden_dim, action_dim, use_dist=False)
     rl_agent = model(actor, critic)
-    policy = MSAC(rl_agent, **kwargs)
+    policy = SAC(rl_agent, **kwargs)
 
     # Evaluate untrained policy
     evaluations = [eval_policy(policy, env_name, seed)]
