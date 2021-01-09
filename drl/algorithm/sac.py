@@ -31,7 +31,7 @@ class SAC1(BasePolicy): # pg_net + q_net + v_net
         act_dim=None,
         alpha=1.0,
         ):
-         super().__init__()
+        super().__init__()
         self.tau = tau
         self.gamma = discount
         self.policy_freq = policy_freq

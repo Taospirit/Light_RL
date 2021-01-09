@@ -20,11 +20,10 @@ from collections import namedtuple
 import sys
 sys.path.append('..')
 
-# from drl.algorithm import MSAC
 from drl.algorithm import SAC
 
 mujuco_env = ['Ant-v2', 'HalfCheetah-v2', 'Hopper-v2', 'Humanoid-v2']
-env_name = mujuco_env[1]
+env_name = mujuco_env[-1]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -92,13 +91,6 @@ class CriticModelDist(nn.Module):
         else:
             self.net1 = self.build_network(obs_dim, mid_dim, act_dim)
             self.net2 = self.build_network(obs_dim, mid_dim, act_dim)
-
-        # self.fc1 = nn.Linear(obs_dim + act_dim, mid_dim)
-        # self.fc2 = nn.Linear(mid_dim, mid_dim)
-        # self.fc3 = nn.Linear(mid_dim, num_atoms)
-
-        # self.fc3.weight.data.uniform_(-init_w, init_w)
-        # self.fc3.bias.data.uniform_(-init_w, init_w)
 
     def build_network(self, obs_dim, mid_dim, act_dim, num_atoms=1):
         self.net = nn.Sequential(nn.Linear(obs_dim + act_dim, mid_dim), nn.ReLU(),

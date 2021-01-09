@@ -8,9 +8,10 @@ import numpy as np
 dir_path = '/home/lintao/drl_repo/Light_RL/beta/results'
 f1 = '/MSAC_HalfCheetah-v2_0_False_False_False.npy'
 f2 = '/MSAC_HalfCheetah-v2_0_True_False_False.npy'
+f3 = '/SAC_Humanoid-v2_0.npy'
 
-data1 = np.load(dir_path + f1)[:300]
-data2 = np.load(dir_path + f2)[:300]
+data1 = np.load(dir_path + f3)
+# data2 = np.load(dir_path + f2)[:300]
 
 def smooth(data, sm=1):
     if sm > 1:
@@ -23,7 +24,7 @@ def smooth(data, sm=1):
         smooth_data = data
     return smooth_data
 
-data = [data1, data2]
+data = [data1]
 
 linestyle = ['-', '--', ':', '-.']
 color = ['r', 'g', 'b', 'k']
@@ -41,7 +42,7 @@ time = range(data[0].shape[-1])
 time = np.array(time)/200
 
 sns.tsplot(time=time, data=data[0], color='r', linestyle='-', condition='SAC')
-sns.tsplot(time=time, data=data[1], color='b', linestyle='-', condition='SAC_PER')
+# sns.tsplot(time=time, data=data[1], color='b', linestyle='-', condition='SAC_PER')
 
 plt.ylabel("Evaluation Reward")
 plt.xlabel("Time steps(1e6)")
