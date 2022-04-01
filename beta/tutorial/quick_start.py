@@ -1,5 +1,4 @@
 import gym
-import os, sys
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,19 +8,10 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from collections import namedtuple
-import sys
-sys.path.append('../..')
+
 from drl.algorithm import A2C
 
-# env
-env_name = 'CartPole-v0'
-env = gym.make(env_name)
-env = env.unwrapped # 还原env的原始设置，env外包了一层防作弊层
-
-# Parameters
-state_space = env.observation_space.shape[0]
-action_space = env.action_space.n
-
+# actor & critic network. you must define yourself
 class ActorNet(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super().__init__()
@@ -53,14 +43,21 @@ class CriticV(nn.Module):
         state_value = self.value_linear(x)
         return state_value
 
+# env
+env_name = 'CartPole-v1'
+env = gym.make(env_name)
+env = env.unwrapped # 还原env的原始设置，env外包了一层防作弊层
+state_space = env.observation_space.shape[0]
+action_space = env.action_space.n
+
+# policy init
 model = namedtuple('model', ['policy_net', 'value_net'])
 actor = ActorNet(state_space, 32, action_space)
 critic = CriticV(state_space, 32, 1)
-model = model(actor, critic)
-policy = A2C(model, buffer_size=1000, learning_rate=1e-2)
+agent = model(actor, critic)
+policy = A2C(agent, buffer_size=1000, learning_rate=1e-2)
 
 def sample(env, policy, max_step):
-    # reward_avg = 0
     rewards = 0
     state = env.reset()
     for _ in range(max_step):
@@ -85,12 +82,12 @@ def sample(env, policy, max_step):
 
 def main():
     for i_eps in range(200):
+        # sample with env
         rewards = sample(env, policy, 1000)
 
         # step3: policy learn from stored transition in Buffer, to update network
         pg_loss, v_loss = policy.learn()
-        reward, pg_loss, v_loss = round(rewards, 3), round(pg_loss, 3), round(v_loss, 3)
-        print (f'EPS:{i_eps}, reward:{rewards}, pg_loss:{pg_loss}, v_loss:{v_loss}')    
+        print (f'EPS:{i_eps}, reward:{round(rewards, 3)}, pg_loss:{round(pg_loss, 3)}, v_loss:{round(v_loss, 3)}')    
     env.close()
 
 if __name__ == '__main__':

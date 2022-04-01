@@ -7,7 +7,7 @@ from collections import deque
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def plot(steps, y_label, model_save_dir, step_interval):
+def plot(steps, y_label, model_save_dir, step_interval=None):
     ax = plt.subplot(111)
     ax.cla()
     ax.grid()
@@ -18,7 +18,7 @@ def plot(steps, y_label, model_save_dir, step_interval):
     RunTime = len(steps)
 
     path = model_save_dir + '/RunTime' + str(RunTime) + '.jpg'
-    if len(steps) % step_interval == 0:
+    if step_interval and len(steps) % step_interval == 0:
         plt.savefig(path)
         print(f'save fig in {path}')
     plt.pause(0.0000001)

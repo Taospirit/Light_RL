@@ -11,6 +11,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.distributions import Categorical
 from collections import namedtuple
 from copy import deepcopy
+import sys
+sys.path.append('../..')
 
 from drl.algorithm import TD3
 from utils.plot import plot

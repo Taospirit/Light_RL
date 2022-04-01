@@ -5,75 +5,27 @@ import time
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 from torch.utils.tensorboard import SummaryWriter
-from torch.distributions import Categorical
-from collections import namedtuple
-import sys
-sys.path.append('../..')
-# sys.path.appedn('..')
 
+import drl.utils as Tools
 from drl.algorithm import DDPG
-from drl.utils import plot
-from tqdm import tqdm
 
-env_name = 'Pendulum-v0'
-buffer_size = 10000
-actor_learn_freq = 1
-target_update_freq = 10
-target_update_tau = 0.1
-batch_size = 128
-hidden_dim = 128
-episodes = 1000
-max_step = 300
-lr = 3e-3
-
-POLT_NAME = 'DDPG_' + env_name
-SAVE_DIR = '/save/ddpg_' + env_name
-# LOG_DIR = '/logs'
-
-model_save_dir = abspath(dirname(__file__)) + SAVE_DIR
-save_file = model_save_dir.split('/')[-1]
-# writer_path = model_save_dir + LOG_DIR
-
-
-env = gym.make(env_name)
-env = env.unwrapped
-env.seed(1)
-torch.manual_seed(1)
-
-# Parameters
-state_space = env.observation_space.shape[0]
-action_space = env.action_space.shape[0]
-action_max = env.action_space.high[0]
-action_scale = (env.action_space.high - env.action_space.low) / 2
-action_bias = (env.action_space.high + env.action_space.low) / 2
-
-class ActorModel(nn.Module):
+class ActorNet(nn.Module):
     def __init__(self, state_dim, hidden_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, hidden_dim), nn.ReLU(),
                                  nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
                                  nn.Linear(hidden_dim, action_dim), nn.Tanh(), )
+        # self.net1 = nn.Sequential(nn.Conv2d(3, ), nn.ReLU(),
+        #                         )
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    def forward(self, state):
-        action = self.net(state)
-        return action
+    def forward(self, s):
+        return self.net(s)
 
-    def action(self, state, noise_std=0, noise_clip=0.5):
-        action = self.net(state)
-        if noise_std:
-            noise_norm = torch.ones_like(action).data.normal_(0, noise_std).to(self.device)
-            action += noise_norm.clamp(-noise_clip, noise_clip)
-        action = action.clamp(-action_max, action_max)
-        return action.detach().cpu().numpy()
-
-class CriticModel(nn.Module):
+class CriticNet(nn.Module): # Q(s,a)
     def __init__(self, state_dim, hidden_dim, action_dim):
         super().__init__()
-        # inpur_dim = state_dim + action_dim, 
         self.net = nn.Sequential(nn.Linear(state_dim + action_dim , hidden_dim), nn.ReLU(),
                                  nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
                                  nn.Linear(hidden_dim, 1), )
@@ -83,80 +35,88 @@ class CriticModel(nn.Module):
         q_value = self.net(x)
         return q_value
 
-model = namedtuple('model', ['policy_net', 'value_net'])
-actor = ActorModel(state_space, hidden_dim, action_space)
-critic = CriticModel(state_space, hidden_dim, action_space)
-model = model(actor, critic)
-policy = DDPG(model, buffer_size=buffer_size, actor_learn_freq=actor_learn_freq,
-        target_update_freq=target_update_freq, target_update_tau=target_update_tau, 
-        batch_size=batch_size, learning_rate=lr, num_episodes=episodes)
-# writer = SummaryWriter(writer_path)
+# env
+env_name = 'Pendulum-v1'
+env = gym.make(env_name)
+env = env.unwrapped
+env.reset(seed=1)
+torch.manual_seed(1)
 
-TRAIN = True
-PLOT = True
+# Parameters
+state_space = env.observation_space.shape[0]
+action_space = env.action_space.shape[0]
+action_max = env.action_space.high[0]
+action_scale = (env.action_space.high - env.action_space.low) / 2
+action_bias = (env.action_space.high + env.action_space.low) / 2
+hidden_dim = 128
+
+kwargs = {
+        'buffer_size': 10000,
+        'actor_learn_freq': 1,
+        'target_update_freq': 10,
+        'target_update_tau': 0.1,
+        'batch_size': 128,
+        'learning_rate': 3e-3,
+        'num_episodes': 1000,
+        'act_max': action_max,
+        'act_scale': action_scale,
+        'act_bias': action_bias,
+    }
+
+actor = ActorNet(state_space, hidden_dim, action_space)
+critic = CriticNet(state_space, hidden_dim, action_space)
+policy = DDPG(actor, critic, **kwargs)
+
+# model save setting
+save_dir = 'save/ddpg_' + env_name
+save_dir = os.path.join(os.path.dirname(__file__), save_dir)
+save_file = save_dir.split('/')[-1]
+os.makedirs(save_dir, exist_ok=True)
+# writer = SummaryWriter(os.path.dirname(save_dir)+'/logs/ddpg_')
+
+PLOT = 1
 # WRITER = False
 
-def map_action(action):
-    if isinstance(action, torch.Tensor):
-        action = action.item()
-    return action * action_scale + action_bias
-
-def sample(env, policy, max_step, train=True, render=False):
-    reward_avg = 0
-    state = env.reset()
-    for step in range(max_step):
-        #==============choose_action==============
-        action = policy.choose_action(state)
-        next_state, reward, done, info = env.step(map_action(action))
-        if train:
-            mask = 0 if done else 1
-            #==============process==============
-            policy.process(s=state, a=action, r=reward, m=mask, s_=next_state)
-        if render:
-            env.render()
-        reward_avg += reward
-        if done:
-            break
-        state = next_state
-    reward_avg /= (step + 1)
-    return reward_avg
-
 def eval():
-    policy.load_model(model_save_dir, save_file, load_actor=True)
-    for i_eps in range(100):
-        reward_avg = sample(env, policy, max_step, train=False, render=True)
-        print (f'EPS:{i_eps + 1}, reward:{round(reward_avg, 3)}')
+    policy.load_model(save_dir, save_file, load_actor=1)
+    for i_eps in range(1000):
+        rewards = policy.sample(env, train=0, render=1)
+        print (f'EPS:{i_eps + 1}, reward:{round(rewards, 3)}')
     env.close()
 
 def train():
     try:
-        os.makedirs(model_save_dir)
+        os.makedirs(save_dir)
     except FileExistsError:
         import shutil
-        shutil.rmtree(model_save_dir)
-        os.makedirs(model_save_dir)
+        shutil.rmtree(save_dir)
+        os.makedirs(save_dir)
+
+    #======warm up========
+    warm_up_size = int(1e4)
+    while policy.warm_up(warm_up_size):
+        policy.sample(env, max_len=1000)
+        print (f'Warm up for buffer {len(policy.buffer)}/{warm_up_size}')
+    else:
+        print (f'Warm up over! buffer {len(policy.buffer)}')
+    
     live_time = []
-
-    while policy.warm_up(int(1e3)):
-        sample(env, policy, max_step)
-        print (f'Warm up for buffer {len(policy.buffer)}', end='\r')
-
-    for i_eps in tqdm(range(episodes)):
-        reward_avg = sample(env, policy, max_step, render=False)
+    from tqdm import tqdm
+    for i_eps in tqdm(range(policy.num_episodes)):
+        rewards = policy.sample(env, max_len=300)
         #==============learn==============
         pg_loss, v_loss = policy.learn()
         if PLOT:
-            live_time.append(reward_avg)
-            plot(live_time, 'DDPG_'+env_name, model_save_dir, 100)
+            live_time.append(rewards)
+            Tools.plot(live_time, 'DDPG_'+env_name, save_dir, 100)
         # if WRITER:
-        #     writer.add_scalar('reward', reward_avg, global_step=i_eps)
+        #     writer.add_scalar('reward', rewards, global_step=i_eps)
         #     writer.add_scalar('loss/pg_loss', pg_loss, global_step=i_eps)
         #     writer.add_scalar('loss/v_loss', v_loss, global_step=i_eps)
-        if i_eps % 50 == 0:
-            # pass
-            print (f'EPS:{i_eps}, reward_avg:{round(reward_avg, 3)}, pg_loss:{round(pg_loss, 3)}, v_loss:{round(v_loss, 3)}', end='\r')
-        if i_eps % 200 == 0:
-            policy.save_model(model_save_dir, save_file, save_actor=True, save_critic=True)
+        if (i_eps + 1) % 50 == 0:
+            print (f'EPS:{i_eps}, rewards:{round(rewards, 3)}, pg_loss:{round(pg_loss, 3)}, v_loss:{round(v_loss, 3)}', end='\r')
+        if (i_eps + 1) % 200 == 0 or i_eps == (policy.num_episodes - 1):
+            policy.save_model(save_dir, save_file, str(i_eps + 1), save_actor=1, save_critic=1)
     # writer.close()
 
 if __name__ == '__main__':

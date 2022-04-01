@@ -13,6 +13,12 @@ class BasePolicy(object):
     def learn(self):
         raise NotImplementedError
 
+    def action(self):
+        raise NotImplementedError
+
+    def sample(self):
+        raise NotImplementedError
+
     def process(self, **kwargs):
         self.buffer.append(**kwargs)
 
@@ -21,23 +27,25 @@ class BasePolicy(object):
         model_.load_state_dict(model.state_dict())
         return model_.eval()
 
-    def choose_action(self, state, test=False):
-        state = torch.tensor(state, dtype=torch.float32, device=device)
-        if test:
-            self.actor_eval.eval()
-        return self.actor_eval.action(state, test)
+    # def choose_action(self, state, eval=False):
+    #     state = torch.tensor(state, dtype=torch.float32, device=device)
+    #     if eval:
+    #         self.actor_eval.eval()
+    #     # return self.actor_eval.action(state, eval)
+    #     return self.action(state, eval)
 
     def warm_up(self, warm_size=0):
+        # for off-policy algo, warm up is better
         if warm_size:
             return len(self.buffer) < warm_size
         return not self.buffer.is_full()
 
-    def save_model(self, save_dir, save_file_name, save_actor=False, save_critic=False):
-        assert isinstance(save_dir, str) and isinstance(save_file_name, str)
+    def save_model(self, save_dir, save_file, save_step, save_actor=False, save_critic=False):
+        assert isinstance(save_dir, str) and isinstance(save_file, str)
         os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, save_file_name)
-        actor_save = save_path + '_actor.pth'
-        critic_save = save_path + '_critic.pth'
+        save_path = os.path.join(save_dir, save_file)
+        actor_save = '_'.join((save_path, save_step, 'actor.pth'))
+        critic_save = '_'.join((save_path, save_step, 'critic.pth'))
 
         if save_actor:
             torch.save(self.actor_eval.state_dict(), actor_save)
@@ -46,10 +54,20 @@ class BasePolicy(object):
             torch.save(self.critic_eval.state_dict(), critic_save)
             print (f'Save critic model in {critic_save}')
 
-    def load_model(self, save_dir, save_file_name, load_actor=False, load_critic=False):
-        save_path = os.path.join(save_dir, save_file_name)
-        actor_save = save_path + '_actor.pth'
-        critic_save = save_path + '_critic.pth'
+    def load_model(self, save_dir, load_actor=False, load_critic=False):
+        load_file = None
+        load_step = -1
+        for f in os.listdir(save_dir):
+            if 'actor.pth' in f: 
+                load_file = save_dir + '/' + f
+                step_num = int(f.split('_')[-2])
+                if step_num > load_step:
+                    load_step = step_num
+                    load_file = save_dir + '/' + f
+
+        assert load_file, f'No model file to load in {save_dir}'
+        actor_save = load_file
+        critic_save = '_'.join(load_file.split('_')[:-1]) + '_critic.pth'
 
         if load_actor:
             assert os.path.exists(actor_save), f'No {actor_save} file to load'
